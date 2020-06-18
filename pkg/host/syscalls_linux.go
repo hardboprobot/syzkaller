@@ -166,6 +166,8 @@ func isSupportedSyzkall(sandbox string, c *prog.Syscall) (bool, string) {
 	switch c.CallName {
 	case "syz_open_dev":
 		return isSupportedSyzOpenDev(sandbox, c)
+	case "syz_hantro_start":
+		return true, ""
 	case "syz_open_procfs":
 		return true, ""
 	case "syz_open_pts":

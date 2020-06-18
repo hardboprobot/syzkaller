@@ -1495,6 +1495,118 @@ static long syz_open_dev(volatile long a0, volatile long a1, volatile long a2)
 }
 #endif
 
+#if SYZ_EXECUTOR || __NR_syz_hantro_start
+#include <linux/media.h>
+#include <linux/videodev2.h>
+#include <sys/mman.h>
+
+#define MEDIA_IOC_REQUEST_ALLOC _IOR('|', 0x05, int)
+
+static long syz_hantro_start(volatile long a0, volatile long a1)
+{
+	int video_fd = a0;
+	int media_fd = a1;
+	int request_fd;
+	struct v4l2_format outfmt = {0};
+	struct v4l2_format capfmt = {0};
+	struct v4l2_requestbuffers outreq = {0};
+	struct v4l2_requestbuffers capreq = {0};
+	struct v4l2_buffer outbuf = {0};
+	struct v4l2_buffer capbuf = {0};
+	void* outbuf_addr;
+	void* capbuf_addr;
+	struct v4l2_plane outplanes[1] = {{0}};
+	struct v4l2_plane capplanes[1] = {{0}};
+	enum v4l2_buf_type type;
+
+	/* Set OUTPUT format */
+	outfmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	outfmt.fmt.pix_mp.width = 1280;
+	outfmt.fmt.pix_mp.height = 720;
+	outfmt.fmt.pix_mp.plane_fmt[0].sizeimage = 1382400;
+	outfmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
+	if (ioctl(video_fd, VIDIOC_S_FMT, &outfmt) < 0) {
+		return -1;
+	}
+
+	/*
+	 * Set all the controls required by the OUTPUT format to
+	 * enumerate the CAPTURE formats.
+	 */
+
+	/* Get the CAPTURE format */
+	capfmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	if (ioctl(video_fd, VIDIOC_G_FMT, &capfmt) < 0) {
+		return -1;
+	}
+
+	/* Allocate source buffers on OUTPUT queue */
+	outreq.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	outreq.memory = V4L2_MEMORY_MMAP;
+	outreq.count = 1;
+	if (ioctl(video_fd, VIDIOC_REQBUFS, &outreq) < 0) {
+		return -1;
+	}
+
+	/* Query and map OUTPUT buffers */
+	outbuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	outbuf.memory = V4L2_MEMORY_MMAP;
+	outbuf.index = 0;
+	outbuf.length = 1;
+	outbuf.m.planes = outplanes;
+	if (ioctl(video_fd, VIDIOC_QUERYBUF, &outbuf) < 0) {
+		return -1;
+	}
+	outbuf_addr = mmap(NULL, outbuf.m.planes[0].length,
+			   PROT_READ | PROT_WRITE, MAP_SHARED,
+			   video_fd, outbuf.m.planes[0].m.mem_offset);
+	if (outbuf_addr == MAP_FAILED) {
+		return -1;
+	}
+
+	/* Allocate destination buffers on the CAPTURE queue */
+	capreq.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	capreq.memory = V4L2_MEMORY_MMAP;
+	capreq.count = 1;
+	if (ioctl(video_fd, VIDIOC_REQBUFS, &capreq) < 0) {
+		return -1;
+	}
+
+	/* Query and map CAPTURE buffers */
+	capbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	capbuf.memory = V4L2_MEMORY_MMAP;
+	capbuf.index = 0;
+	capbuf.length = 1;
+	capbuf.m.planes = capplanes;
+	if (ioctl(video_fd, VIDIOC_QUERYBUF, &capbuf) < 0) {
+		return -1;
+	}
+	capbuf_addr = mmap(NULL, capbuf.m.planes[0].length,
+			   PROT_READ | PROT_WRITE, MAP_SHARED,
+			   video_fd, capbuf.m.planes[0].m.mem_offset);
+	if (capbuf_addr == MAP_FAILED) {
+		return -1;
+	}
+
+	/* Allocate request */
+	if (ioctl(media_fd, MEDIA_IOC_REQUEST_ALLOC, &request_fd) < 0) {
+		return -1;
+	}
+
+	/* Start streaming on both OUTPUT and CAPTURE queues */
+	type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	if (ioctl(video_fd, VIDIOC_STREAMON, &type) < 0) {
+		return -1;
+	}
+	type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+	if (ioctl(video_fd, VIDIOC_STREAMON, &type) < 0) {
+		return -1;
+	}
+
+	return request_fd;
+}
+#endif
+
 #if SYZ_EXECUTOR || __NR_syz_open_procfs
 #include <fcntl.h>
 #include <string.h>

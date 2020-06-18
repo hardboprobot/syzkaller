@@ -148,6 +148,11 @@ done
 # Add udev rules for custom drivers.
 # Create a /dev/vim2m symlink for the device managed by the vim2m driver
 echo 'ATTR{name}=="vim2m", SYMLINK+="vim2m"' | sudo tee -a disk.mnt/etc/udev/rules.d/50-udev-default.rules
+# Create symlinks for the devices the hantro driver
+echo 'ATTR{name}=="rockchip,rk3399-vpu-enc", SYMLINK+="hantro_enc"' | sudo tee -a disk.mnt/etc/udev/rules.d/50-udev-default.rules
+echo 'ATTR{name}=="rockchip,rk3399-vpu-dec", SYMLINK+="hantro_dec"' | sudo tee -a disk.mnt/etc/udev/rules.d/50-udev-default.rules
+echo 'ATTR{model}=="hantro-vpu", SYMLINK+="hantro_media"' | sudo tee -a disk.mnt/etc/udev/rules.d/50-udev-default.rules
+
 
 # sysctls
 echo "kernel.printk = 7 4 1 3" | sudo tee -a disk.mnt/etc/sysctl.conf
